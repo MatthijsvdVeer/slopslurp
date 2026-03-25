@@ -2,17 +2,19 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    background: #faf8f5;
 }
 
 .top-bar {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    background: #fff;
     padding: 1rem 0;
-    border-bottom: 3px solid #e94560;
+    border-bottom: 1px solid #f0ebe4;
+    box-shadow: 0 1px 8px rgba(120, 113, 108, 0.06);
 }
 
 .brand {
-    color: #e94560;
-    font-size: 1.8rem;
+    color: #f97066;
+    font-size: 1.6rem;
     font-weight: 800;
     margin: 0;
     display: inline;
@@ -20,9 +22,10 @@
 }
 
 .tagline {
-    color: #a8a8b3;
-    margin-left: 1rem;
-    font-size: 0.95rem;
+    color: #a8a29e;
+    margin-left: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 500;
 }
 
 main {
@@ -31,9 +34,9 @@ main {
 
 #blazor-error-ui {
     color-scheme: light only;
-    background: lightyellow;
+    background: #fffbeb;
     bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.1);
     box-sizing: border-box;
     display: none;
     left: 0;
@@ -41,6 +44,7 @@ main {
     position: fixed;
     width: 100%;
     z-index: 1000;
+    border-radius: 0;
 }
 
     #blazor-error-ui .dismiss {

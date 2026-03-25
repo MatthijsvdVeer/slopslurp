@@ -4,14 +4,14 @@
 @inject ValidationEngine ValidationEngine
 @rendermode InteractiveServer
 
-<PageTitle>SlopSlurp - AI Text Trope Validator</PageTitle>
+<PageTitle>SlopSlurp — Your Friendly AI Writing Coach</PageTitle>
 
 <div class="row">
     <div class="col-lg-8 mx-auto">
         <!-- Input Section -->
         <div class="card input-card mb-4">
             <div class="card-body">
-                <label for="textInput" class="form-label fw-bold">Paste your text</label>
+                <label for="textInput" class="form-label fw-bold">Drop your text here and let's see how it reads ✨</label>
                 <div class="text-container position-relative">
                     @if (_selectedViolation is not null)
                     {
@@ -21,7 +21,7 @@
                               class="form-control text-input @(_selectedViolation is not null ? "transparent-text" : "")"
                               rows="8"
                               maxlength="2000"
-                              placeholder="Paste AI-generated text here to check for common tropes..."
+                              placeholder="Paste your text here — we'll gently point out any AI-isms we spot..."
                               @bind="_inputText"
                               @bind:event="oninput"
                               disabled="@_isValidating"></textarea>
@@ -30,7 +30,7 @@
                     @if (_isValidating)
                     {
                         <button class="btn btn-cancel" @onclick="CancelValidation">
-                            Cancel
+                            Never mind ✋
                         </button>
                     }
                     else
@@ -38,7 +38,7 @@
                         <button class="btn btn-validate"
                                 @onclick="ValidateAsync"
                                 disabled="@(string.IsNullOrWhiteSpace(_inputText))">
-                            Validate
+                            Let's take a look 🔍
                         </button>
                     }
                     <span class="char-counter @(CharCount > 1800 ? "text-warning" : "") @(CharCount >= 2000 ? "text-danger" : "")">
@@ -54,7 +54,7 @@
             <div class="card progress-card mb-4">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="fw-bold">Analyzing...</span>
+                        <span class="fw-bold">Reading through...</span>
                         <span class="text-muted">@_completedCount / @_totalCount rules</span>
                     </div>
                     <div class="progress" role="progressbar" aria-valuenow="@_completedCount" aria-valuemin="0" aria-valuemax="@_totalCount">
@@ -75,7 +75,7 @@
         {
             <div class="card results-card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <span class="fw-bold">Results</span>
+                    <span class="fw-bold">What we found</span>
                     @if (_validationComplete)
                     {
                         <span class="badge @(_violations.Count > 0 ? "bg-warning text-dark" : "bg-success")">
@@ -84,7 +84,7 @@
                     }
                     else
                     {
-                        <span class="badge bg-info">@_violations.Count violation(s) so far...</span>
+                        <span class="badge bg-info">@_violations.Count spot(s) so far...</span>
                     }
                 </div>
                 @if (_violations.Count > 0)
@@ -120,7 +120,7 @@
                                         <div class="explanation">@violation.Explanation</div>
                                         @if (_selectedViolation == violation)
                                         {
-                                            <div class="highlight-hint mt-1">Highlighted in text above</div>
+                                            <div class="highlight-hint mt-1">👆 Highlighted in your text above</div>
                                         }
                                     </div>
                                 }
@@ -134,14 +134,14 @@
         @if (_wasCancelled && _validationComplete)
         {
             <div class="alert alert-warning" role="alert">
-                Validation was cancelled. Showing partial results (@_completedCount / @_totalCount rules checked).
+                No worries — we stopped early. Here's what we found from @_completedCount of @_totalCount checks.
             </div>
         }
 
         @if (_errorMessage is not null)
         {
             <div class="alert alert-danger" role="alert">
-                <strong>Error:</strong> @_errorMessage
+                <strong>Oops!</strong> @_errorMessage
             </div>
         }
     </div>
@@ -173,8 +173,8 @@
         {
             var ruleCount = ViolationsByRule.Count();
             return _violations.Count > 0
-                ? $"Found {_violations.Count} violation(s) across {ruleCount} rule(s)."
-                : "No violations found. Your text looks clean!";
+                ? $"{_violations.Count} little thing(s) across {ruleCount} pattern(s)"
+                : "Looking good! Nothing jumped out at us 🎉";
         }
     }
 
