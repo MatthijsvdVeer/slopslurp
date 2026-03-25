@@ -1,0 +1,185 @@
+﻿@page "/"
+@using SlopSlurp.Rules
+@using SlopSlurp.Rules.Models
+@inject ValidationEngine ValidationEngine
+@rendermode InteractiveServer
+
+<PageTitle>SlopSlurp - AI Text Trope Validator</PageTitle>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- Input Section -->
+        <div class="card input-card mb-4">
+            <div class="card-body">
+                <label for="textInput" class="form-label fw-bold">Paste your text</label>
+                <div class="text-container position-relative">
+                    @if (_selectedViolation is not null)
+                    {
+                        <div class="highlight-overlay" aria-hidden="true">@((MarkupString)GetHighlightedHtml())</div>
+                    }
+                    <textarea id="textInput"
+                              class="form-control text-input @(_selectedViolation is not null ? "transparent-text" : "")"
+                              rows="8"
+                              maxlength="1000"
+                              placeholder="Paste AI-generated text here to check for common tropes..."
+                              @bind="_inputText"
+                              @bind:event="oninput"
+                              disabled="@_isValidating"></textarea>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <button class="btn btn-validate"
+                            @onclick="ValidateAsync"
+                            disabled="@(_isValidating || string.IsNullOrWhiteSpace(_inputText))">
+                        @if (_isValidating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Analyzing...</span>
+                        }
+                        else
+                        {
+                            <span>Validate</span>
+                        }
+                    </button>
+                    <span class="char-counter @(CharCount > 900 ? "text-warning" : "") @(CharCount >= 1000 ? "text-danger" : "")">
+                        @CharCount / 1000
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        @if (_result is not null)
+        {
+            <div class="card results-card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">Results</span>
+                    <span class="badge @(_result.HasViolations ? "bg-warning text-dark" : "bg-success")">
+                        @_result.Summary
+                    </span>
+                </div>
+                @if (_result.HasViolations)
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var group in _result.ViolationsByRule)
+                        {
+                            var rule = RuleRegistry.GetRule(group.Key);
+                            var violations = group.ToList();
+                            <button class="list-group-item list-group-item-action rule-item @(_expandedRuleId == group.Key ? "active" : "")"
+                                    @onclick="() => ToggleRule(group.Key)">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <span class="rule-id">@group.Key</span>
+                                        <span class="rule-name">@(rule?.Name ?? group.Key)</span>
+                                        @if (rule is not null)
+                                        {
+                                            <span class="badge category-badge ms-2">@rule.Category</span>
+                                        }
+                                    </div>
+                                    <span class="badge bg-danger rounded-pill">@violations.Count</span>
+                                </div>
+                            </button>
+
+                            @if (_expandedRuleId == group.Key)
+                            {
+                                @foreach (var violation in violations)
+                                {
+                                    <div class="violation-detail list-group-item @(_selectedViolation == violation ? "selected" : "")"
+                                         @onclick="() => SelectViolation(violation)"
+                                         @onclick:stopPropagation="true">
+                                        <div class="matched-text">"@violation.MatchedText"</div>
+                                        <div class="explanation">@violation.Explanation</div>
+                                        @if (_selectedViolation == violation)
+                                        {
+                                            <div class="highlight-hint mt-1">Highlighted in text above</div>
+                                        }
+                                    </div>
+                                }
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (_errorMessage is not null)
+        {
+            <div class="alert alert-danger" role="alert">
+                <strong>Error:</strong> @_errorMessage
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string _inputText = string.Empty;
+    private bool _isValidating;
+    private ValidationResult? _result;
+    private string? _expandedRuleId;
+    private RuleViolation? _selectedViolation;
+    private string? _errorMessage;
+
+    private int CharCount => _inputText?.Length ?? 0;
+
+    private async Task ValidateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_inputText)) return;
+
+        _isValidating = true;
+        _result = null;
+        _expandedRuleId = null;
+        _selectedViolation = null;
+        _errorMessage = null;
+
+        try
+        {
+            _result = await ValidationEngine.ValidateAsync(_inputText);
+
+            // Auto-expand the first rule group
+            if (_result.HasViolations)
+            {
+                _expandedRuleId = _result.ViolationsByRule.First().Key;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Validation failed: {ex.Message}";
+        }
+        finally
+        {
+            _isValidating = false;
+        }
+    }
+
+    private void ToggleRule(string ruleId)
+    {
+        _expandedRuleId = _expandedRuleId == ruleId ? null : ruleId;
+        _selectedViolation = null;
+    }
+
+    private void SelectViolation(RuleViolation violation)
+    {
+        _selectedViolation = _selectedViolation == violation ? null : violation;
+    }
+
+    private string GetHighlightedHtml()
+    {
+        if (_selectedViolation is null || string.IsNullOrEmpty(_inputText))
+            return System.Net.WebUtility.HtmlEncode(_inputText);
+
+        var text = _inputText;
+        var start = _selectedViolation.StartIndex;
+        var length = _selectedViolation.Length;
+
+        if (start < 0 || start >= text.Length)
+            return System.Net.WebUtility.HtmlEncode(text);
+
+        if (start + length > text.Length)
+            length = text.Length - start;
+
+        var before = System.Net.WebUtility.HtmlEncode(text[..start]);
+        var match = System.Net.WebUtility.HtmlEncode(text.Substring(start, length));
+        var after = System.Net.WebUtility.HtmlEncode(text[(start + length)..]);
+
+        return $"{before}<mark>{match}</mark>{after}";
+    }
+}
