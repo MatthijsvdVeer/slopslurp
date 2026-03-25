@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using SlopSlurp.Observability;
 using SlopSlurp.Rules.Models;
 
 namespace SlopSlurp.Rules.LlmPowered;
@@ -19,6 +20,7 @@ public class LlmValidationRule : IValidationRule
 
     public async Task<IEnumerable<RuleViolation>> ValidateAsync(string text, CancellationToken cancellationToken = default)
     {
+        using var activity = ActivitySources.Validation.StartActivity();
         try
         {
             var prompt = $"""

@@ -32,12 +32,15 @@ public static class ApplicationBuilderExtensions
             {
                 _ = metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddRuntimeInstrumentation();
+                    .AddRuntimeInstrumentation()
+                    .AddMeter("*Microsoft.Extensions.AI");
             }).WithTracing(tracing =>
             {
                 _ = tracing.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddSource(ActivitySources.Validation.Name);
+                    .AddSource(ActivitySources.Validation.Name)
+                    .AddSource("*Microsoft.Extensions.AI")
+                    .AddSource("*Microsoft.Extensions.Agents*");
             });
 
         _ = builder.AddOpenTelemetryExporters();

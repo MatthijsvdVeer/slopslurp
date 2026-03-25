@@ -20,7 +20,7 @@
                     <textarea id="textInput"
                               class="form-control text-input @(_selectedViolation is not null ? "transparent-text" : "")"
                               rows="8"
-                              maxlength="1000"
+                              maxlength="2000"
                               placeholder="Paste AI-generated text here to check for common tropes..."
                               @bind="_inputText"
                               @bind:event="oninput"
@@ -41,8 +41,8 @@
                             Validate
                         </button>
                     }
-                    <span class="char-counter @(CharCount > 900 ? "text-warning" : "") @(CharCount >= 1000 ? "text-danger" : "")">
-                        @CharCount / 1000
+                    <span class="char-counter @(CharCount > 1800 ? "text-warning" : "") @(CharCount >= 2000 ? "text-danger" : "")">
+                        @CharCount / 2000
                     </span>
                 </div>
             </div>

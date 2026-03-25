@@ -37,8 +37,8 @@ public class ValidationEngine
         if (string.IsNullOrWhiteSpace(text))
             return new ValidationResult();
 
-        if (text.Length > 1000)
-            text = text[..1000];
+        if (text.Length > 2000)
+            text = text[..2000];
 
         var allViolations = new List<RuleViolation>();
         var completed = 0;
