@@ -1,33 +1,21 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Azure.AI.OpenAI;
-using Azure.Identity;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
-using OpenAI.Chat;
 using SlopSlurp.Rules.Models;
 
 namespace SlopSlurp.Rules.LlmPowered;
 
 public class TropeAnalysisAgent
 {
-    private readonly ChatClient _chatClient;
+    private readonly IChatClient _chatClient;
     private readonly ILogger<TropeAnalysisAgent> _logger;
     private readonly string _systemPrompt;
 
-    public TropeAnalysisAgent(IConfiguration configuration, ILogger<TropeAnalysisAgent> logger)
+    public TropeAnalysisAgent(IChatClient chatClient, ILogger<TropeAnalysisAgent> logger)
     {
+        _chatClient = chatClient;
         _logger = logger;
-        var endpoint = configuration["Foundry:Endpoint"]
-            ?? throw new InvalidOperationException("Foundry:Endpoint configuration is required.");
-        var model = configuration["Foundry:Model"]
-            ?? throw new InvalidOperationException("Foundry:Model configuration is required.");
-
-        var azureClient = new AzureOpenAIClient(
-            new Uri(endpoint),
-            new DefaultAzureCredential());
-
-        _chatClient = azureClient.GetChatClient(model);
         _systemPrompt = BuildSystemPrompt();
     }
 
@@ -37,18 +25,18 @@ public class TropeAnalysisAgent
         {
             var messages = new List<ChatMessage>
             {
-                new SystemChatMessage(_systemPrompt),
-                new UserChatMessage(text)
+                new(ChatRole.System, _systemPrompt),
+                new(ChatRole.User, text)
             };
 
-            var options = new ChatCompletionOptions
+            var options = new ChatOptions
             {
                 Temperature = 0.1f,
-                ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
+                ResponseFormat = ChatResponseFormat.Json
             };
 
-            var response = await _chatClient.CompleteChatAsync(messages, options);
-            var responseText = response.Value.Content[0].Text;
+            var response = await _chatClient.GetResponseAsync(messages, options);
+            var responseText = response.Text;
 
             var json = ExtractJson(responseText);
             var result = JsonSerializer.Deserialize<LlmAnalysisResponse>(json, JsonOptions);
