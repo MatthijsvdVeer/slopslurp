@@ -3,7 +3,6 @@ using Azure.Identity;
 using Microsoft.Extensions.AI;
 using SlopSlurp.Observability;
 using SlopSlurp.Rules;
-using SlopSlurp.Rules.LlmPowered;
 using SlopSlurp.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,7 +26,6 @@ builder.Services.AddChatClient(
         .AsIChatClient());
 
 // Register SlopSlurp services
-builder.Services.AddSingleton<TropeAnalysisAgent>();
 builder.Services.AddScoped<ValidationEngine>();
 
 var app = builder.Build();
