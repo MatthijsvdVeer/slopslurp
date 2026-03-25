@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SlopSlurp.Rules\SlopSlurp.Rules.csproj" />
+    <ProjectReference Include="..\SlopSlurp.Observability\SlopSlurp.Observability.csproj" />
   </ItemGroup>
 
   <ItemGroup>

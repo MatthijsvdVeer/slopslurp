@@ -1,6 +1,7 @@
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Extensions.AI;
+using SlopSlurp.Observability;
 using SlopSlurp.Rules;
 using SlopSlurp.Rules.LlmPowered;
 using SlopSlurp.Web.Components;
@@ -10,6 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Add OpenTelemetry observability
+builder.AddTelemetry("web");
 
 // Register IChatClient via Azure OpenAI / Foundry
 var endpoint = builder.Configuration["Foundry:Endpoint"]
