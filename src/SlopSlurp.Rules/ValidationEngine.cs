@@ -12,6 +12,8 @@ public class ValidationEngine
     private readonly List<LlmValidationRule> _llmRules;
     private readonly ILogger<ValidationEngine> _logger;
 
+    public int TotalRuleCount => _codeFirstRules.Count + _llmRules.Count;
+
     public ValidationEngine(
         IChatClient chatClient,
         ILogger<ValidationEngine> logger)
@@ -27,7 +29,10 @@ public class ValidationEngine
             .ToList();
     }
 
-    public async Task<ValidationResult> ValidateAsync(string text)
+    public async Task<ValidationResult> ValidateAsync(
+        string text,
+        IProgress<ValidationProgressUpdate>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))
             return new ValidationResult();
@@ -36,42 +41,65 @@ public class ValidationEngine
             text = text[..1000];
 
         var allViolations = new List<RuleViolation>();
+        var completed = 0;
+        var total = TotalRuleCount;
 
         // Phase 1: Run code-first rules (fast, deterministic)
         foreach (var rule in _codeFirstRules)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             try
             {
-                var violations = await rule.ValidateAsync(text);
+                var violations = (await rule.ValidateAsync(text, cancellationToken)).ToList();
                 allViolations.AddRange(violations);
+                completed++;
+                progress?.Report(new ValidationProgressUpdate(
+                    completed, total, rule.Definition.Name, violations));
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error running code-first rule {RuleId}", rule.Definition.Id);
+                completed++;
+                progress?.Report(new ValidationProgressUpdate(
+                    completed, total, rule.Definition.Name, []));
             }
         }
 
-        // Phase 2: Run all LLM rules in parallel
+        // Phase 2: Fire all LLM rules in parallel, report as each completes
         var llmTasks = _llmRules.Select(async rule =>
         {
             try
             {
-                return await rule.ValidateAsync(text);
+                var violations = (await rule.ValidateAsync(text, cancellationToken)).ToList();
+                return (rule.Definition, Violations: violations);
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error running LLM rule {RuleId}", rule.Definition.Id);
-                return Enumerable.Empty<RuleViolation>();
+                return (rule.Definition, Violations: new List<RuleViolation>());
             }
-        });
+        }).ToList();
 
-        var llmResults = await Task.WhenAll(llmTasks);
-        foreach (var violations in llmResults)
+        var remaining = new List<Task<(RuleDefinition Definition, List<RuleViolation> Violations)>>(llmTasks);
+
+        while (remaining.Count > 0)
         {
-            allViolations.AddRange(violations);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var completedTask = await Task.WhenAny(remaining);
+            remaining.Remove(completedTask);
+
+            var result = await completedTask;
+            allViolations.AddRange(result.Violations);
+            completed++;
+
+            progress?.Report(new ValidationProgressUpdate(
+                completed, total, result.Definition.Name, result.Violations));
         }
 
-        // Sort by position in text
         allViolations.Sort((a, b) => a.StartIndex.CompareTo(b.StartIndex));
 
         return new ValidationResult { Violations = allViolations };

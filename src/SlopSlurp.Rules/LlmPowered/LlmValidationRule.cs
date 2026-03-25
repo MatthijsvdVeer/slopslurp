@@ -17,7 +17,7 @@ public class LlmValidationRule : IValidationRule
 
     public RuleDefinition Definition => _definition;
 
-    public async Task<IEnumerable<RuleViolation>> ValidateAsync(string text)
+    public async Task<IEnumerable<RuleViolation>> ValidateAsync(string text, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -37,7 +37,7 @@ public class LlmValidationRule : IValidationRule
                     schemaName: "trope_detection")
             };
 
-            var response = await _chatClient.GetResponseAsync(prompt, options);
+            var response = await _chatClient.GetResponseAsync(prompt, options, cancellationToken);
             var responseText = response.Text.Trim();
 
             // Strip markdown fences if present

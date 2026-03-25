@@ -24,7 +24,7 @@ public partial class EmojiRule : IValidationRule
         RegexOptions.Compiled)]
     private static partial Regex UnicodeDecorationPattern();
 
-    public Task<IEnumerable<RuleViolation>> ValidateAsync(string text)
+    public Task<IEnumerable<RuleViolation>> ValidateAsync(string text, CancellationToken cancellationToken = default)
     {
         var violations = new List<RuleViolation>();
         var matches = UnicodeDecorationPattern().Matches(text);

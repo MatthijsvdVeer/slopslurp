@@ -10,7 +10,7 @@ public partial class EmDashRule : IValidationRule
     [GeneratedRegex(@"\u2014|\u2013|(?<!\-)--(?!\-)", RegexOptions.Compiled)]
     private static partial Regex EmDashPattern();
 
-    public Task<IEnumerable<RuleViolation>> ValidateAsync(string text)
+    public Task<IEnumerable<RuleViolation>> ValidateAsync(string text, CancellationToken cancellationToken = default)
     {
         var violations = new List<RuleViolation>();
         var matches = EmDashPattern().Matches(text);
