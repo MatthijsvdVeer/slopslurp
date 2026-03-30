@@ -1,0 +1,272 @@
+﻿@page "/"
+@using SlopSlurp.Rules
+@using SlopSlurp.Rules.Models
+@inject ValidationEngine ValidationEngine
+@rendermode InteractiveServer
+
+<PageTitle>SlopSlurp — Your Friendly AI Writing Coach</PageTitle>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- Input Section -->
+        <div class="card input-card mb-4">
+            <div class="card-body">
+                <label for="textInput" class="form-label fw-bold">Drop your text here and let's see how it reads ✨</label>
+                <div class="text-container position-relative">
+                    @if (_selectedViolation is not null)
+                    {
+                        <div class="highlight-overlay" aria-hidden="true">@((MarkupString)GetHighlightedHtml())</div>
+                    }
+                    <textarea id="textInput"
+                              class="form-control text-input @(_selectedViolation is not null ? "transparent-text" : "")"
+                              rows="8"
+                              maxlength="2000"
+                              placeholder="Paste your text here — we'll gently point out any AI-isms we spot..."
+                              @bind="_inputText"
+                              @bind:event="oninput"
+                              disabled="@_isValidating"></textarea>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    @if (_isValidating)
+                    {
+                        <button class="btn btn-cancel" @onclick="CancelValidation">
+                            Never mind ✋
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-validate"
+                                @onclick="ValidateAsync"
+                                disabled="@(string.IsNullOrWhiteSpace(_inputText))">
+                            Let's take a look 🔍
+                        </button>
+                    }
+                    <span class="char-counter @(CharCount > 1800 ? "text-warning" : "") @(CharCount >= 2000 ? "text-danger" : "")">
+                        @CharCount / 2000
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Section -->
+        @if (_isValidating)
+        {
+            <div class="card progress-card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold">Reading through...</span>
+                        <span class="text-muted">@_completedCount / @_totalCount rules</span>
+                    </div>
+                    <div class="progress" role="progressbar" aria-valuenow="@_completedCount" aria-valuemin="0" aria-valuemax="@_totalCount">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             style="width: @(ProgressPercent)%">
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_currentRuleName))
+                    {
+                        <div class="text-muted mt-1 small">Checking: @_currentRuleName</div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Results Section -->
+        @if (_violations.Count > 0 || (_validationComplete && !_wasCancelled))
+        {
+            <div class="card results-card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">What we found</span>
+                    @if (_validationComplete)
+                    {
+                        <span class="badge @(_violations.Count > 0 ? "bg-warning text-dark" : "bg-success")">
+                            @ResultSummary
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-info">@_violations.Count spot(s) so far...</span>
+                    }
+                </div>
+                @if (_violations.Count > 0)
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var group in ViolationsByRule)
+                        {
+                            var rule = RuleRegistry.GetRule(group.Key);
+                            var violations = group.ToList();
+                            <button class="list-group-item list-group-item-action rule-item @(_expandedRuleId == group.Key ? "active" : "")"
+                                    @onclick="() => ToggleRule(group.Key)">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <span class="rule-id">@group.Key</span>
+                                        <span class="rule-name">@(rule?.Name ?? group.Key)</span>
+                                        @if (rule is not null)
+                                        {
+                                            <span class="badge category-badge ms-2">@rule.Category</span>
+                                        }
+                                    </div>
+                                    <span class="badge bg-danger rounded-pill">@violations.Count</span>
+                                </div>
+                            </button>
+
+                            @if (_expandedRuleId == group.Key)
+                            {
+                                @foreach (var violation in violations)
+                                {
+                                    <div class="violation-detail list-group-item @(_selectedViolation == violation ? "selected" : "")"
+                                         @onclick="() => SelectViolation(violation)"
+                                         @onclick:stopPropagation="true">
+                                        <div class="matched-text">"@violation.MatchedText"</div>
+                                        <div class="explanation">@violation.Explanation</div>
+                                        @if (_selectedViolation == violation)
+                                        {
+                                            <div class="highlight-hint mt-1">👆 Highlighted in your text above</div>
+                                        }
+                                    </div>
+                                }
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (_wasCancelled && _validationComplete)
+        {
+            <div class="alert alert-warning" role="alert">
+                No worries — we stopped early. Here's what we found from @_completedCount of @_totalCount checks.
+            </div>
+        }
+
+        @if (_errorMessage is not null)
+        {
+            <div class="alert alert-danger" role="alert">
+                <strong>Oops!</strong> @_errorMessage
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string _inputText = string.Empty;
+    private bool _isValidating;
+    private bool _validationComplete;
+    private bool _wasCancelled;
+    private readonly List<RuleViolation> _violations = [];
+    private string? _expandedRuleId;
+    private RuleViolation? _selectedViolation;
+    private string? _errorMessage;
+    private int _completedCount;
+    private int _totalCount;
+    private string? _currentRuleName;
+    private CancellationTokenSource? _cts;
+
+    private int CharCount => _inputText?.Length ?? 0;
+    private int ProgressPercent => _totalCount > 0 ? (int)(100.0 * _completedCount / _totalCount) : 0;
+
+    private IEnumerable<IGrouping<string, RuleViolation>> ViolationsByRule =>
+        _violations.GroupBy(v => v.RuleId);
+
+    private string ResultSummary
+    {
+        get
+        {
+            var ruleCount = ViolationsByRule.Count();
+            return _violations.Count > 0
+                ? $"{_violations.Count} little thing(s) across {ruleCount} pattern(s)"
+                : "Looking good! Nothing jumped out at us 🎉";
+        }
+    }
+
+    private async Task ValidateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_inputText)) return;
+
+        _isValidating = true;
+        _validationComplete = false;
+        _wasCancelled = false;
+        _violations.Clear();
+        _expandedRuleId = null;
+        _selectedViolation = null;
+        _errorMessage = null;
+        _completedCount = 0;
+        _totalCount = ValidationEngine.TotalRuleCount;
+        _currentRuleName = null;
+        _cts = new CancellationTokenSource();
+
+        var progress = new Progress<ValidationProgressUpdate>(update =>
+        {
+            _completedCount = update.CompletedCount;
+            _currentRuleName = update.CurrentRuleName;
+
+            if (update.NewViolations.Count > 0)
+            {
+                _violations.AddRange(update.NewViolations);
+
+                // Auto-expand the first rule group
+                _expandedRuleId ??= update.NewViolations[0].RuleId;
+            }
+
+            InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            await ValidationEngine.ValidateAsync(_inputText, progress, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _wasCancelled = true;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Validation failed: {ex.Message}";
+        }
+        finally
+        {
+            _isValidating = false;
+            _validationComplete = true;
+            _currentRuleName = null;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private void CancelValidation()
+    {
+        _cts?.Cancel();
+    }
+
+    private void ToggleRule(string ruleId)
+    {
+        _expandedRuleId = _expandedRuleId == ruleId ? null : ruleId;
+        _selectedViolation = null;
+    }
+
+    private void SelectViolation(RuleViolation violation)
+    {
+        _selectedViolation = _selectedViolation == violation ? null : violation;
+    }
+
+    private string GetHighlightedHtml()
+    {
+        if (_selectedViolation is null || string.IsNullOrEmpty(_inputText))
+            return System.Net.WebUtility.HtmlEncode(_inputText);
+
+        var text = _inputText;
+        var start = _selectedViolation.StartIndex;
+        var length = _selectedViolation.Length;
+
+        if (start < 0 || start >= text.Length)
+            return System.Net.WebUtility.HtmlEncode(text);
+
+        if (start + length > text.Length)
+            length = text.Length - start;
+
+        var before = System.Net.WebUtility.HtmlEncode(text[..start]);
+        var match = System.Net.WebUtility.HtmlEncode(text.Substring(start, length));
+        var after = System.Net.WebUtility.HtmlEncode(text[(start + length)..]);
+
+        return $"{before}<mark>{match}</mark>{after}";
+    }
+}
