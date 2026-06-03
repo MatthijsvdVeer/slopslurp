@@ -93,9 +93,6 @@ For observability, optionally set:
 
 The set of AI writing tropes used by SlopSlurp is based on the catalogue published at **[tropes.fyi](https://tropes.fyi)**. Huge thanks to the folks behind that project for documenting these patterns — their work is the foundation of our rule definitions.
 
-## Recommended Additions
+## License
 
-If you're contributing to this project, consider adding:
-
-- **Contributing guidelines** — How to add new rules, coding standards, and PR workflow
-- **License** — Choose and add an appropriate open-source license
+This project is licensed under the [MIT License](LICENSE).

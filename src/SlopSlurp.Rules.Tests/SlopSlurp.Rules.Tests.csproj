@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\SlopSlurp.Rules\SlopSlurp.Rules.csproj" />
+    <ProjectReference Include="..\SlopSlurp.Rules\SlopSlurp.Rules.csproj" />
   </ItemGroup>
 
 </Project>
